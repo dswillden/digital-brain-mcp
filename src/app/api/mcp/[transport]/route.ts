@@ -1,4 +1,5 @@
-import { createMcpHandler } from "mcp-handler";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import { getTextEmbedding } from "@/lib/embeddings";
 import {
@@ -8,13 +9,12 @@ import {
   deleteMemory,
   updateMemory,
 } from "@/lib/supabase";
-import { authenticateRequest } from "@/lib/auth";
 
 // ---------------------------------------------------------------------------
 // MCP Handler — defines all tools that AI clients can call
 // ---------------------------------------------------------------------------
 
-const handler = createMcpHandler(
+const baseHandler = createMcpHandler(
   (server) => {
     // -----------------------------------------------------------------------
     // TOOL: store_memory
@@ -402,7 +402,6 @@ const handler = createMcpHandler(
       {},
       async () => {
         try {
-          // We do a few lightweight queries to gather stats
           const { supabase } = await import("@/lib/supabase");
 
           const { count: totalCount } = await supabase
@@ -446,11 +445,7 @@ const handler = createMcpHandler(
       }
     );
   },
-  {
-    // MCP server metadata
-    name: "digital-brain",
-    version: "1.0.0",
-  },
+  {},
   {
     basePath: "/api/mcp",
     verboseLogs: true,
@@ -460,34 +455,40 @@ const handler = createMcpHandler(
 );
 
 // ---------------------------------------------------------------------------
-// Route handlers — wraps the MCP handler with authentication
+// Authentication via withMcpAuth
+// Uses Bearer token validation against DIGITAL_BRAIN_API_KEYS env var
 // ---------------------------------------------------------------------------
 
-async function withAuth(
-  request: Request,
-  mcpHandler: (req: Request) => Promise<Response>
-): Promise<Response> {
-  const auth = authenticateRequest(request);
-  if (!auth.authenticated) {
-    return new Response(
-      JSON.stringify({ error: auth.error }),
-      {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+const verifyToken = async (
+  _req: Request,
+  bearerToken?: string
+): Promise<AuthInfo | undefined> => {
+  if (!bearerToken) return undefined;
+
+  const configuredKeys = process.env.DIGITAL_BRAIN_API_KEYS;
+  if (!configuredKeys || configuredKeys.trim() === "") {
+    return undefined; // No keys configured = reject all
   }
-  return mcpHandler(request);
-}
 
-export async function GET(request: Request) {
-  return withAuth(request, handler as (req: Request) => Promise<Response>);
-}
+  const allowedKeys = configuredKeys
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
 
-export async function POST(request: Request) {
-  return withAuth(request, handler as (req: Request) => Promise<Response>);
-}
+  if (!allowedKeys.includes(bearerToken)) {
+    return undefined; // Invalid key
+  }
 
-export async function DELETE(request: Request) {
-  return withAuth(request, handler as (req: Request) => Promise<Response>);
-}
+  // Return AuthInfo on success
+  return {
+    token: bearerToken,
+    clientId: "digital-brain-client",
+    scopes: ["read", "write"],
+  };
+};
+
+const handler = withMcpAuth(baseHandler, verifyToken, {
+  required: true, // All requests must be authenticated
+});
+
+export { handler as GET, handler as POST, handler as DELETE };

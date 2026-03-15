@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "digital-brain-local": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:3000/api/mcp/sse",
+        "--header",
+        "Authorization:Bearer ${DIGITAL_BRAIN_API_KEY}"
+      ],
+      "env": {
+        "DIGITAL_BRAIN_API_KEY": "your-local-api-key"
+      }
+    },
+    "digital-brain": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://digital-brain-mcp.vercel.app/api/mcp/sse",
+        "--header",
+        "Authorization:Bearer ${DIGITAL_BRAIN_API_KEY}"
+      ],
+      "env": {
+        "DIGITAL_BRAIN_API_KEY": "your-production-api-key"
+      }
+    }
+  }
+}

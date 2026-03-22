@@ -412,15 +412,15 @@ In Cursor settings, add an MCP server with type **SSE**:
 
 ### OpenCode
 
-Add to your OpenCode config:
+Add to your OpenCode MCP config (`.opencode/config.json` or equivalent):
 
 ```json
 {
   "mcp": {
     "servers": {
       "digital-brain": {
-        "type": "sse",
-        "url": "https://YOUR_VERCEL_URL/api/mcp",
+        "type": "remote",
+        "url": "https://YOUR_VERCEL_URL/api/mcp/mcp",
         "headers": {
           "Authorization": "Bearer d4cd26491ad32691fa8562aed753873b3eb304ee3fe1ae539292186c0cd7e3f3"
         }
@@ -428,6 +428,8 @@ Add to your OpenCode config:
     }
   }
 }
+
+> **Note:** OpenCode uses `"type": "remote"` (not `"sse"`). The URL path should end with `/mcp` not `/sse`.
 ```
 
 ---

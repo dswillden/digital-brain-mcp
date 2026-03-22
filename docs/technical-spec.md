@@ -1893,7 +1893,9 @@ The `text` field contains a JSON string (pretty-printed with 2-space indentation
 - URL: `https://your-deployment.vercel.app/api/mcp/sse`
 - Headers: `Authorization: Bearer YOUR_KEY`
 
-**OpenCode / other clients:** Use SSE endpoint with Bearer auth header.
+**OpenCode:** Uses `"type": "remote"` with URL `https://digital-brain-mcp.vercel.app/api/mcp/mcp` and `Authorization: Bearer <key>` header. Note: OpenCode requires `remote` type, not `sse`.
+
+**Other MCP clients:** Use SSE endpoint (`/api/mcp/sse`) with Bearer auth header.
 
 ---
 

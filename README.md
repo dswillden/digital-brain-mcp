@@ -31,6 +31,9 @@ AI Client (Claude / Cursor / OpenCode / Copilot)
 │    • update_memory                       │
 │    • delete_memory                       │
 │    • get_stats                           │
+│                                          │
+│   REST Endpoint:                         │
+│    • POST /api/upload  (direct file)     │
 └──────────┬─────────────┬─────────────────┘
            │             │
      ┌─────┴─────┐  ┌───┴──────────────┐
@@ -338,9 +341,15 @@ digital-brain-mcp/
 │   │   │           └── route.ts    ← MCP endpoint (9 tools + auth)
 │   │   ├── layout.tsx              ← Root layout
 │   │   └── page.tsx                ← Landing page
+│   │   ├── upload/
+│   │   │   └── route.ts            ← Direct file upload endpoint (POST /api/upload)
 │   └── lib/
 │       ├── embeddings.ts           ← Gemini Embedding 2 multimodal client
 │       └── supabase.ts             ← Supabase client + data helpers + file storage
+├── docs/
+│   ├── setup-guide.md              ← Step-by-step setup instructions
+│   ├── technical-spec.md           ← Detailed spec for AI agents to understand/recreate
+│   └── explainer.md                ← Beginner-friendly guide with diagrams
 ├── supabase/
 │   └── migrations/
 │       ├── 001_create_memories.sql   ← Base schema (text only)
@@ -368,6 +377,15 @@ Once connected, you can say things like:
 - **"Save this PDF from https://example.com/report.pdf"**
   → Calls `store_file_from_url`, downloads and embeds the PDF
 
+- **Upload a local file directly** (from terminal):
+  ```bash
+  curl -X POST https://digital-brain-mcp.vercel.app/api/upload \
+    -H "Authorization: Bearer YOUR_API_KEY" \
+    -F "file=@./diagram.png" \
+    -F "description=System architecture diagram" \
+    -F "tags=work,architecture"
+  ```
+
 - **"What do I know about authentication patterns?"**
   → Calls `search_memory`, finds text AND image/PDF results across modalities
 
@@ -392,6 +410,43 @@ Once connected, you can say things like:
 | **Upstash Redis** | 10K commands/day | Heavy concurrent sessions |
 
 For personal second-brain use, everything stays well within free tiers.
+
+---
+
+## Direct File Upload (REST API)
+
+In addition to the MCP tools, there's a simple REST endpoint for uploading files directly from your terminal or any HTTP client — no base64 encoding needed:
+
+```bash
+curl -X POST https://digital-brain-mcp.vercel.app/api/upload \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F "file=@/path/to/photo.jpg" \
+  -F "description=Team photo from Q1 offsite" \
+  -F "tags=team,photos" \
+  -F "source=manual-upload"
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `file` | Yes | The file to upload (multipart form) |
+| `description` | No | Text description — improves search quality significantly |
+| `tags` | No | Comma-separated tags |
+| `source` | No | Where it came from (defaults to "file-upload") |
+| `metadata` | No | JSON string for extra structured data |
+
+Your AI clients (Claude Code, Cursor, OpenCode) can also run this curl command on your behalf when you ask them to upload a local file.
+
+---
+
+## Documentation
+
+Detailed docs are in the [`docs/`](docs/) folder:
+
+| Document | Audience | Description |
+|----------|----------|-------------|
+| [Setup Guide](docs/setup-guide.md) | You | Step-by-step setup with full SQL, Vercel deploy, and client configs |
+| [Technical Spec](docs/technical-spec.md) | AI agents | Exhaustive specification — enough for an AI to understand, maintain, or recreate the system |
+| [Explainer](docs/explainer.md) | Beginners | What embeddings, vectors, MCP, and Supabase are, with diagrams and analogies |
 
 ---
 

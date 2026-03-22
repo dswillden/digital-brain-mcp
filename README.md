@@ -323,7 +323,27 @@ Go to **Settings → Cursor Settings → Tools & MCP → Add Server**:
 - URL: `https://digital-brain-mcp.vercel.app/api/mcp/sse`
 - Headers: `Authorization: Bearer YOUR_API_KEY_HERE`
 
-### OpenCode / Any MCP Client
+### OpenCode
+
+Add to your OpenCode MCP config (`.opencode/config.json` or equivalent):
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "digital-brain": {
+        "type": "remote",
+        "url": "https://digital-brain-mcp.vercel.app/api/mcp/mcp",
+        "headers": {
+          "Authorization": "Bearer YOUR_API_KEY_HERE"
+        }
+      }
+    }
+  }
+}
+```
+
+### Any Other MCP Client
 
 Use the SSE endpoint `https://digital-brain-mcp.vercel.app/api/mcp/sse` with an `Authorization: Bearer <key>` header.
 

@@ -23,6 +23,10 @@ export interface Memory {
   content_type: string;
   source: string | null;
   tags: string[];
+  file_mime_type: string | null;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  file_storage_path: string | null;
   embedding?: number[];
   created_at: string;
   updated_at: string;
@@ -44,6 +48,10 @@ export async function insertMemory(params: {
   content_type?: string;
   source?: string;
   tags?: string[];
+  file_mime_type?: string;
+  file_name?: string;
+  file_size_bytes?: number;
+  file_storage_path?: string;
 }): Promise<Memory> {
   const { data, error } = await supabase
     .from("memories")
@@ -54,6 +62,10 @@ export async function insertMemory(params: {
       content_type: params.content_type ?? "text",
       source: params.source ?? null,
       tags: params.tags ?? [],
+      file_mime_type: params.file_mime_type ?? null,
+      file_name: params.file_name ?? null,
+      file_size_bytes: params.file_size_bytes ?? null,
+      file_storage_path: params.file_storage_path ?? null,
     })
     .select()
     .single();
@@ -68,6 +80,7 @@ export async function searchMemories(params: {
   matchThreshold?: number;
   matchCount?: number;
   filterTags?: string[];
+  filterContentType?: string;
 }): Promise<MemoryMatch[]> {
   const { data, error } = await supabase.rpc("match_memories", {
     query_embedding: params.queryEmbedding,
@@ -77,7 +90,15 @@ export async function searchMemories(params: {
   });
 
   if (error) throw new Error(`Supabase search error: ${error.message}`);
-  return (data ?? []) as MemoryMatch[];
+
+  let results = (data ?? []) as MemoryMatch[];
+
+  // Client-side content_type filter (simpler than modifying the RPC)
+  if (params.filterContentType) {
+    results = results.filter((r) => r.content_type === params.filterContentType);
+  }
+
+  return results;
 }
 
 /** List memories with optional filtering. */
@@ -89,7 +110,9 @@ export async function listMemories(params?: {
 }): Promise<Memory[]> {
   let query = supabase
     .from("memories")
-    .select("id, content, metadata, content_type, source, tags, created_at, updated_at")
+    .select(
+      "id, content, metadata, content_type, source, tags, file_mime_type, file_name, file_size_bytes, file_storage_path, created_at, updated_at"
+    )
     .order("created_at", { ascending: false })
     .limit(params?.limit ?? 20);
 
@@ -110,8 +133,19 @@ export async function listMemories(params?: {
   return (data ?? []) as Memory[];
 }
 
-/** Delete a memory by ID. */
+/** Delete a memory by ID. Also removes any stored file. */
 export async function deleteMemory(id: number): Promise<void> {
+  // First check if there's a file to clean up
+  const { data: memory } = await supabase
+    .from("memories")
+    .select("file_storage_path")
+    .eq("id", id)
+    .single();
+
+  if (memory?.file_storage_path) {
+    await supabase.storage.from("brain-files").remove([memory.file_storage_path]);
+  }
+
   const { error } = await supabase.from("memories").delete().eq("id", id);
   if (error) throw new Error(`Supabase delete error: ${error.message}`);
 }
@@ -141,4 +175,36 @@ export async function updateMemory(params: {
 
   if (error) throw new Error(`Supabase update error: ${error.message}`);
   return data as Memory;
+}
+
+/** Upload a file to Supabase Storage and return the path. */
+export async function uploadFile(
+  fileName: string,
+  fileData: Buffer,
+  mimeType: string
+): Promise<string> {
+  const timestamp = Date.now();
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `uploads/${timestamp}_${safeName}`;
+
+  const { error } = await supabase.storage
+    .from("brain-files")
+    .upload(storagePath, fileData, {
+      contentType: mimeType,
+      upsert: false,
+    });
+
+  if (error) throw new Error(`Storage upload error: ${error.message}`);
+
+  return storagePath;
+}
+
+/** Get a signed URL for a stored file (valid for 1 hour). */
+export async function getFileUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("brain-files")
+    .createSignedUrl(storagePath, 3600); // 1 hour
+
+  if (error) throw new Error(`Storage URL error: ${error.message}`);
+  return data.signedUrl;
 }
